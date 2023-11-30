@@ -1,0 +1,413 @@
+*CMZ :          30/08/94  14.16.48  by  S.Ravndal
+*-- Author :
+      SUBROUTINE GUSTEP
+C.
+C.    *
+C.    *       User routine called at the end of each tracking step
+C.    *       INWVOL is different from 0 when the track has reached
+C.    *              a volume boundary
+C.    *       ISTOP is different from 0 if the track has stopped
+C.    *
+C.
+*KEEP,GCTMED.
+      COMMON/GCTMED/NUMED,NATMED(5),ISVOL,IFIELD,FIELDM,TMAXFD,STEMAX
+     +      ,DEEMAX,EPSIL,STMIN,CFIELD,PREC,IUPD,ISTPAR,NUMOLD
+      COMMON/GCTLIT/THRIND,PMIN,DP,DNDL,JMIN,ITCKOV,IMCKOV,NPCKOV
+C
+      INTEGER       NUMED,NATMED,ISVOL,IFIELD,IUPD,ISTPAR,NUMOLD
+      REAL          FIELDM,TMAXFD,STEMAX,DEEMAX,EPSIL,STMIN,CFIELD,PREC
+      INTEGER       JMIN,NPCKOV,IMCKOV,ITCKOV
+      REAL          THRIND,PMIN,DP,DNDL
+C
+*KEEP,GCFLAG.
+      COMMON/GCFLAG/IDEBUG,IDEMIN,IDEMAX,ITEST,IDRUN,IDEVT,IEORUN
+     +        ,IEOTRI,IEVENT,ISWIT(10),IFINIT(20),NEVENT,NRNDM(2)
+      COMMON/GCFLAX/BATCH, NOLOG
+      LOGICAL BATCH, NOLOG
+C
+      INTEGER       IDEBUG,IDEMIN,IDEMAX,ITEST,IDRUN,IDEVT,IEORUN
+     +        ,IEOTRI,IEVENT,ISWIT,IFINIT,NEVENT,NRNDM
+C
+*KEEP,GCKINE.
+      COMMON/GCKINE/IKINE,PKINE(10),ITRA,ISTAK,IVERT,IPART,ITRTYP
+     +      ,NAPART(5),AMASS,CHARGE,TLIFE,VERT(3),PVERT(4),IPAOLD
+C
+      INTEGER       IKINE,ITRA,ISTAK,IVERT,IPART,ITRTYP,NAPART,IPAOLD
+      REAL          PKINE,AMASS,CHARGE,TLIFE,VERT,PVERT
+C
+*KEEP,GCKING.
+      INTEGER MXGKIN
+      PARAMETER (MXGKIN=100)
+      COMMON/GCKING/KCASE,NGKINE,GKIN(5,MXGKIN),
+     +                           TOFD(MXGKIN),IFLGK(MXGKIN)
+      INTEGER       KCASE,NGKINE ,IFLGK,MXPHOT,NGPHOT
+      REAL          GKIN,TOFD,XPHOT
+C
+      PARAMETER (MXPHOT=800)
+      COMMON/GCKIN2/NGPHOT,XPHOT(11,MXPHOT)
+C
+      COMMON/GCKIN3/GPOS(3,MXGKIN)
+      REAL          GPOS
+C
+*KEEP,GCTRAK.
+      INTEGER NMEC,LMEC,NAMEC,NSTEP ,MAXNST,IGNEXT,INWVOL,ISTOP,MAXMEC
+     + ,IGAUTO,IEKBIN,ILOSL, IMULL,INGOTO,NLDOWN,NLEVIN,NLVSAV,ISTORY
+     + ,MAXME1,NAMEC1
+      REAL  VECT,GETOT,GEKIN,VOUT,DESTEP,DESTEL,SAFETY,SLENG ,STEP
+     + ,SNEXT,SFIELD,TOFG  ,GEKRAT,UPWGHT
+      REAL POLAR
+      PARAMETER (MAXMEC=30)
+      COMMON/GCTRAK/VECT(7),GETOT,GEKIN,VOUT(7),NMEC,LMEC(MAXMEC)
+     + ,NAMEC(MAXMEC),NSTEP ,MAXNST,DESTEP,DESTEL,SAFETY,SLENG
+     + ,STEP  ,SNEXT ,SFIELD,TOFG  ,GEKRAT,UPWGHT,IGNEXT,INWVOL
+     + ,ISTOP ,IGAUTO,IEKBIN, ILOSL, IMULL,INGOTO,NLDOWN,NLEVIN
+     + ,NLVSAV,ISTORY
+      PARAMETER (MAXME1=30)
+      COMMON/GCTPOL/POLAR(3), NAMEC1(MAXME1)
+C
+*KEEP,GCVOLU.
+      COMMON/GCVOLU/NLEVEL,NAMES(15),NUMBER(15),
+     +LVOLUM(15),LINDEX(15),INFROM,NLEVMX,NLDEV(15),LINMX(15),
+     +GTRAN(3,15),GRMAT(10,15),GONLY(15),GLX(3)
+C
+      INTEGER NLEVEL,NAMES,NUMBER,LVOLUM,LINDEX,INFROM,NLEVMX,
+     +        NLDEV,LINMX
+      REAL GTRAN,GRMAT,GONLY,GLX
+*KEEP,CELOSS.
+      COMMON/CELOSS/SEL1(40),SEL1C(40),SER1(40),SER1C(40),SNPAT1(40,4),
+     *              SEL2(40),SEL2C(40),SER2(40),SER2C(40),SNPAT2(40,4),
+     *              EINTOT,DEDL(40),DEDR(40),FNPAT(40,4)
+*KEEP,EDEPO.
+      PARAMETER ( NLX=200 , NPX=201 )
+      COMMON/EDEPO/EDEP(NLX)
+     +            ,SEDEP(NLX)
+     +            ,SEDEP2(NLX)
+     +            ,EFLO(NPX)
+     +            ,SEFLO(NPX)
+     +            ,SEFLO2(NPX)
+     +            ,SIGDET,CUTDET
+     +            ,SUMH,SUMH2,EKEV1(2),EKEV2(2),DIVST
+      COMMON/GEOMAT/DZLG(NLX),IMATZ(NLX),ZCORS(NPX)
+     +             ,NLAYZ,NPLAN
+      COMMON/SPCUTS/SPGAM(NLX),SPELE(NLX),SPHAD(NLX)
+*KEND.
+
+      COMMON/COUNT/NOPHO,INDI,ZAHL,INDI2,NPHVER,NUMVER,TEMPH,SEC,NELECT
+     +             ,XOLD,YOLD,ZOLD,KOLD,TOFGOLD,NELVER,TEMPE,EFF,TEMEV
+
+      CHARACTER*4 NAME
+C
+C Ngkin is > 0 if secondary particle have been generated,
+C store them to the particle stak
+C
+      NROLD= 1
+      
+      IF (NGKINE.GT.0) THEN
+          CALL GSKING(0)
+      ENDIF
+C
+C In the case of the first example and that the medium is BGO Numed = 2
+C
+      IF (NUMED.EQ.2) THEN
+          NRIN = NUMBER(NLEVEL)
+C
+C Store the deposited energy in the arry DEDL and DEDR
+C
+          IF (DESTEP.NE.0.)THEN
+              NTUB = NUMBER(NLEVEL-1)
+              DEDL(NRIN) = DEDL(NRIN) + DESTEP
+              DEDR(NTUB) = DEDR(NTUB) + DESTEP
+          END IF
+C
+C Compute the particle flux in the BGO
+C
+	  IF (SLENG.LE.0.) NROLD = NRIN
+          IF (NRIN.NE.NROLD) THEN
+              NPL = (NRIN + NROLD)/2 + 1
+C
+C Store the particle flux for the differen particles seperatly
+C gamma, positron, electron
+C
+              FNPAT(NPL,IPART) = FNPAT(NPL,IPART) + 1.
+              NROLD = NRIN
+          END IF
+      END IF
+C
+C     in case of the third example, the third medium is the one
+C     which is sensitive
+C
+      IF(NUMED.EQ.3) THEN
+              DO JJ = 1,NLEVEL
+                   CALL UHTOC(NAMES(JJ),4,NAME,4)
+                   IF (NAME.EQ.'SECT') THEN
+                       IC = JJ
+                   END  IF
+              END DO
+              EDEP(IC)=EDEP(IC)+DESTEP
+      END IF
+C
+C Store the current step position in the JXYZ data structure
+C if the DEBUG data card has been set to ON
+C
+      IF (IDEBUG.NE.0) THEN
+         CALL GSXYZ
+         IF (ISWIT(2).EQ.1) THEN
+            CALL GPCXYZ
+C            CALL GPGKIN
+         ENDIF
+         CALL GDEBUG
+      ENDIF
+C
+
+      SEC=SEC+NGKINE
+
+
+*******************************CONTEO ANTIGUO DE PARTICULAS******************************************************************************
+C     SOLO LAS LINEAS COMENTADAS CON ASTERISCO ESTABAN FUNCIONANDO EN LA ULTIMA VERSION DEL CONTEO ANTIGUO*******************************
+
+C SI ES UN FOTON EN LA REGION DEL DETECTOR. INDI HACE QUE PUEDA SER CONTADO SOLO UNA VEZ 
+*      IF(IPART.EQ.1.AND.INDI.EQ.1)THEN
+*      IF(VECT(1).GT.1.55.AND.VECT(1).LT.2.55 )THEN
+*      IF(VECT(2).GT.-1.919 .AND.VECT(2).LT.1.919)THEN
+*      IF(VECT(3).GT.-0.015 .AND.VECT(3).LT.0.015)THEN
+C       SI EN ESTE PASO PRODUJO PARTICULAS SECUNDARIAS (PROCESOS EXITOSOS)       
+*        IF(NGKINE.NE.0.)THEN
+C         SI INTERACTUO POR FOTOELECTRICO.DESTEP CORRESPONDE A LA ENERGIA DE ENLACE. ISTOP=1 INDICA QUE DESAPARECIO.
+*          IF(KCASE.EQ.1414482000.AND.DESTEP.NE.0..AND.ISTOP.EQ.1)THEN
+*             NOPHO=NOPHO+1
+*             INDI=0
+*          ENDIF
+C         SI INTERACTUO POR COMPTON.NO HAY PERDIDA DE ENERGIA AUNQUE SU ENERGIA BAJA(EXTRAÑO NO!).ISTOP=0, EL FOTON SIGUE.
+C         SE CONSIDERAN LOS FOTONES ENTRANTE Y SALIENTE COMO UNA MISMA PARTICULA.
+*          IF(KCASE.EQ.1347243843.AND.DESTEP.EQ.0.AND.ISTOP.EQ.0)THEN
+*            NOPHO=NOPHO+1
+*            INDI=0
+*          ENDIF
+C       SI NO PRODUJO SECUNDARIAS (PROCESOS NO EXITOSOS)
+*        ELSEIF (NGKINE.EQ.0)THEN
+C         ISTOP=2, INTERACCION SIN GENERACION DE PARTICULAS SECUNDARIAS. ESTE CASO DEBE APORTAR MUY POCOS CONTEOS A 3XkeV.
+C         ES EFECTIVO A ENERGIAS BAJAS CUANDO GEKIN>12keV, PUES PERMITE LA EXISTENCIA DE FOTOes CON GEKIN>10keV, PUES EN Si
+C         EL DESTEP MAS COMUN EN PHOT ES 1.8keV, QUE REPRESENTA LA ENERGIA DE ENLACE. Ephot=Eelec+E.Enlace
+*          IF(KCASE.EQ.1414482000.AND.DESTEP.NE.0..AND.ISTOP.EQ.2)THEN
+*             NOPHO=NOPHO+1
+*             INDI=0
+*          ENDIF 
+*          IF(KCASE.EQ.1347243843.AND.DESTEP.NE.0.AND.ISTOP.EQ.0)THEN
+*            NOPHO=NOPHO+1
+*            INDI=0
+*          ENDIF
+*        ENDIF
+
+*         WRITE(10,8),IPART, NOPHO,VECT(1),VECT(2),VECT(3),NUMED,VERT(2)
+*  8      FORMAT(' ',I5,3X,I10,3X,E12.6,3X,E12.6,3X,E12.6,3X,I5,3X,E12.6)
+c DEBUG          CALL GPGKIN
+
+*      ENDIF
+*      ENDIF
+*      ENDIF
+*      ENDIF
+      
+c     Si es un electron en su primer paso      
+*      IF(IPART.EQ.3.AND.INDI2.EQ.1)THEN
+c      Si es el mismo con un llamado posterior a gustep con NSTEP=0 u
+c      otro producido x el mismo foton
+C       IF(VERT(1).EQ.XOLD.AND.VERT(2).EQ.YOLD.AND.VERT(3).EQ.ZOLD)THEN
+c        Si tiene el mismo tiempo de vuelo y la misma K es porque probablemente
+c        es el mismo electron         
+C         IF(TOFG.NE.TOFGOLD.AND.NGKINE.NE.KOLD)THEN 
+C DEBUG         write(*,*)'XOLDol=',XOLD, ' YOLDol =',YOLD, ' ZOLDol=',ZOLD
+*          ZAHL=ZAHL+1 
+*          XOLD=VERT(1)
+*          YOLD=VERT(2)
+*          ZOLD=VERT(3)
+*          KOLD=NGKINE
+*          TOFGOLD=TOFG
+*          INDI2=0
+C DEBUG         write(*,*)'XOLDa =',XOLD, ' YOLDa =',YOLD, ' ZOLDa =',ZOLD 
+*          IF(VECT(1).GT.1.55.AND.VECT(1).LT.2.55 )THEN
+*          IF(VECT(2).GT.-1.919 .AND.VECT(2).LT.1.919)THEN
+*          IF(VECT(3).GT.-0.015 .AND.VECT(3).LT.0.015)THEN
+*             NELECT=NELECT+1
+*       WRITE(11,9),IPART,NELECT,VECT(1),VECT(2),VECT(3),GEKIN*1.E6,NUMED
+* 9     FORMAT(' ',I5,3X,I10,3X,E12.6,3X,E12.6,3X,E12.6,3X,E12.6,3X,I5)
+C DEBUG      write(*,*)'XOLDasi =',XOLD, ' YOLDasi =',YOLD, ' ZOLDasi =',ZOLD 
+*          ENDIF
+*          ENDIF
+*          ENDIF
+C         ENDIF
+
+c      Cuando no hay mas de un electron secundario por foton y/o
+c      no vuelve el mismo otra vez con NSTEP=0
+C       ELSE
+C DEBUG        write(*,*)'XOLDol=',XOLD, ' YOLDol =',YOLD, ' ZOLDol=',ZOLD
+C        ZAHL=ZAHL+1  
+C        XOLD=VERT(1)
+C        YOLD=VERT(2)
+C        ZOLD=VERT(3)
+C        KOLD=NGKINE
+C        TOFGOLD=TOFG
+C DEBUG       write(*,*)'XOLDn=',XOLD, ' YOLDn =',YOLD, ' ZOLDn=',ZOLD 
+C        IF(VECT(1).GT.2.05.AND.VECT(1).LT.3.05 )THEN
+C        IF(VECT(2).GT.-1.919 .AND.VECT(2).LT.1.919)THEN
+C        IF(VECT(3).GT.-0.015 .AND.VECT(3).LT.0.015)THEN
+C           NELECT=NELECT+1 
+C        ENDIF
+C        ENDIF 
+C        ENDIF
+C       ENDIF
+*      ENDIF
+
+C     CONTEO DE ELECTRONES IGNORADOS POR GEANT
+*      IF (IPART.EQ.1.AND.NGKINE.EQ.0.AND.DESTEP.NE.0)THEN
+*        IF(VECT(1).GT.1.55.AND.VECT(1).LT.2.55 )THEN
+*        IF(VECT(2).GT.-1.919 .AND.VECT(2).LT.1.919)THEN
+*        IF(VECT(3).GT.-0.015 .AND.VECT(3).LT.0.015)THEN
+c         IF(KCASE.EQ.1414482000.AND.ISTOP.EQ.2)THEN 
+c         NELECT=NELECT+1
+c         ENDIF
+*         IF(KCASE.EQ.1347243843.AND.ISTOP.EQ.0)THEN
+*         NELECT=NELECT+1
+*      WRITE(11,9),IPART,NELECT,VECT(1),VECT(2),VECT(3),DESTEP*1.E6,NUMED
+*          ENDIF
+*         ENDIF
+*         ENDIF
+*         ENDIF
+*      ENDIF
+
+C     IMPRESION PARA DEBUGGING
+c      write(*,*)'IPART=',IPART,'  ISTOP=',ISTOP
+c      CALL GPCXYZ
+c      CALL GPGKIN
+c      write(*,*)'ISTOP =',ISTOP
+c      write(*,*)'************************************'
+c      IF(NGKINE.GT.0)THEN
+c      WRITE(*,*)'SECONDARY/STEP=',NGKINE,' GENERATING MECHANISM: ',KCASE
+c      ENDIF   
+c      write(*,*)'*****************************************************'
+
+********************************************FIN CONTEO ANTIGUO***************************************************************************
+
+****
+*********
+*************
+****************
+
+************************************************NUEVO CONTEO*****************************************************************************
+
+*******************************************2. CONTEO (FOTONES)/(ELECTRONES NO EXITOSOS)*************************************************
+
+C     ACA SE CUENTAN FOTONES COMO PROCESOS COMP Y PHOT EXITOSOS.
+C     EN LOS CASOS NO EXITOSOS SE AUMENTA LA CUENTA TANTO DE FOTONES COMO DE ELECTRONES. NO SE TIENEN EN CUENTA PHOT NO EXITOSOS
+C     DEBIDO A QUE ESTOS OCURREN A ENERGIAS MENORES APROXIMADAMENTE A 12keV, POR ESO SI SE QUIERE EFICIENCIA A ENERGIAS MENORES
+C     SE DEBE ACTIVAR EL CODIGO CORRESPONDIENTE. POR EL CONTRARIO COMP NO EXITOSOS PUEDEN OCURRIR A CUALQUIER ENERGIA EN LA QUE 
+C     SE DE COMP DEBIDO A QUE ES UN PROCESO MUCHO MAS ALEATORIO EN EL QUE LA ENERGIA DEL ELECTRON SALIENTE  (DESTEP) PUEDE ESTAR
+C     POR DEBAJO DE CUTELE.
+
+C     RESUMEN: 1. ACA SE CUENTAN PROCESOS EXITOSOS Y NO EXITOSOS PARA FOTONES
+C              2. PROCESOS NO EXITOSOS PARA ELECTRONES
+
+
+C SI ES UN FOTON EN LA REGION "ACTIVA" DEL DETECTOR. INDI HACE QUE PUEDA SER CONTADO SOLO UNA VEZ 
+      IF(IPART.EQ.1.AND.INDI.EQ.1)THEN
+      IF(VECT(1).GT.1.55.AND.VECT(1).LT.2.55 )THEN
+      IF(VECT(2).GT.-1.919 .AND.VECT(2).LT.1.919)THEN
+      IF(VECT(3).GT.-0.015 .AND.VECT(3).LT.0.015)THEN
+C       SI EN ESTE PASO PRODUJO PARTICULAS SECUNDARIAS (PROCESOS EXITOSOS)       
+        IF(NGKINE.GT.0)THEN
+           IF(KCASE.EQ.1414482000.OR.KCASE.EQ.1347243843)THEN
+             NOPHO=NOPHO+1
+             INDI=0
+          WRITE(10,8),IPART, NOPHO,VECT(1),VECT(2),VECT(3),NUMED,VERT(2) 
+           ENDIF
+           
+
+C         SI INTERACTUO POR FOTOELECTRICO.DESTEP CORRESPONDE A LA ENERGIA DE ENLACE. ISTOP=1 INDICA QUE DESAPARECIO.
+C          IF(KCASE.EQ.1414482000.AND.DESTEP.NE.0..AND.ISTOP.EQ.1)THEN
+C             NOPHO=NOPHO+1
+C             INDI=0
+C          ENDIF
+C         SI INTERACTUO POR COMPTON.NO HAY PERDIDA DE ENERGIA AUNQUE SU ENERGIA BAJA(EXTRAÑO NO!).ISTOP=0, EL FOTON SIGUE.
+C         SE CONSIDERAN LOS FOTONES ENTRANTE Y SALIENTE COMO UNA MISMA PARTICULA.
+C          IF(KCASE.EQ.1347243843.AND.DESTEP.EQ.0.AND.ISTOP.EQ.0)THEN
+C            NOPHO=NOPHO+1
+C            INDI=0
+C          ENDIF
+
+
+C       SI NO PRODUJO SECUNDARIAS (PROCESOS NO EXITOSOS)
+        ELSEIF (NGKINE.EQ.0.AND.DESTEP.NE.0.)THEN
+C         ISTOP=2, INTERACCION SIN GENERACION DE PARTICULAS SECUNDARIAS. ESTE CASO DEBE APORTAR MUY POCOS CONTEOS A 3XkeV.
+C         ES EFECTIVO A ENERGIAS BAJAS CUANDO GEKIN>12keV, PUES PERMITE LA EXISTENCIA DE FOTONES CON GEKIN>10keV, PUES EN Si
+C         EL DESTEP MAS COMUN EN PHOT ES 1.8keV, QUE REPRESENTA LA ENERGIA DE ENLACE. Ephot=Eelec+E.Enlace
+C          IF(KCASE.EQ.1414482000.AND.ISTOP.EQ.2)THEN
+C             NOPHO=NOPHO+1
+C             INDI=0
+C          ENDIF 
+          IF(KCASE.EQ.1347243843.AND.ISTOP.EQ.0)THEN
+            NOPHO=NOPHO+1
+            NELECT=NELECT+1
+            INDI=0
+       WRITE(10,8),IPART, NOPHO,VECT(1),VECT(2),VECT(3),NUMED,VERT(2)      
+       WRITE(11,9),IPART,NELECT,VECT(1),VECT(2),VECT(3),GEKIN*1.E6,NUMED
+ 9     FORMAT(' ',I5,3X,I10,3X,E12.6,3X,E12.6,3X,E12.6,3X,E12.6,3X,I5)
+*            WRITE(*,*)'         *****COMPTON SPECIAL CASE************'
+*            WRITE(*,*)'INDI2ESP=',INDI2
+            INDI2=0
+          ENDIF
+        ENDIF
+
+*       WRITE(10,8),IPART, NOPHO,VECT(1),VECT(2),VECT(3),NUMED,VERT(2)
+ 8     FORMAT(' ',I5,3X,I10,3X,E12.6,3X,E12.6,3X,E12.6,3X,I5,3X,E12.6) 
+ 
+C     SE ESCRIBE EL ARCHIVO DE FOTONES SIEMPRE (NOPHO AUMENTA SIEMPRE). EL DE ELECTRONES SOLO CUANDO NELEC AUMENTA.
+
+      ENDIF
+      ENDIF
+      ENDIF
+      ENDIF
+
+*****************************************FIN CONTEO FOTONES/ELECTRONES NO EXITOSOS***************************************************
+
+*********************************B.ELECTRONES EN Si "ACTIVO". SIMPLIFICADO*************************************************************
+
+C     ESTE ES EL CONTEO DE PROCESOS EXITOSOS PARA ELECTRONES.
+C     NOTA:
+C     ESTRICTAMENTE HABLANDO, NO HAY ELECTRONES NI PARTICULAS NO EXITOSOS, HAY PROCESOS NO EXITOSOS COMP Y PHOT.
+
+C     CONDICIONES SIMPLIFICADAS DE CONTEO. SE AÑADE VERIFICACION DE QUE EL ELECTRON FUE GENERADO DENTRO DEL Si "ACTIVO" Y NO SOLAMENTE
+C     QUE ESTA DENTRO DEL Si "ACTIVO".PROBABLEMENTE ESTA NUEVA CONDICION NO CAMBIE NADA, Y SI LO HACE ES MINIMO PORQUE SABEMOS QUE LA 
+C     OTRA POSIBILIDAD ES QUE SE GENEREN ELECTRONES EN LA REGION MUERTA DE Si, PERO POR SER DE BAJAS ENERGIAS NO SON TRANSPORTADOS Y
+C     ADEMAS EL MEAN FREE PATH EN Si ES PEQUEÑO (REVISAR ESTE VALOR EN DRMAT). EN CORRIDAS DE BAJA ESTADISTICA NO SE APRECIA CAMBIO.
+
+      IF(IPART.EQ.3.AND.INDI2.EQ.1)THEN
+          IF(VECT(1).GT.1.55.AND.VECT(1).LT.2.55 )THEN
+          IF(VECT(2).GT.-1.919 .AND.VECT(2).LT.1.919)THEN
+          IF(VECT(3).GT.-0.015 .AND.VECT(3).LT.0.015)THEN
+            IF(VERT(1).GT.1.55.AND.VERT(1).LT.2.55 )THEN
+            IF(VERT(2).GT.-1.919 .AND.VERT(2).LT.1.919)THEN
+            IF(VERT(3).GT.-0.015 .AND.VERT(3).LT.0.015)THEN  
+             
+              NELECT=NELECT+1
+              INDI2=0
+       WRITE(11,9),IPART,NELECT,VECT(1),VECT(2),VECT(3),GEKIN*1.E6,NUMED
+ 
+            ENDIF
+            ENDIF
+            ENDIF
+          ENDIF
+          ENDIF
+          ENDIF
+      ENDIF    
+************************************FIN CONTEO ELECTRONES SIMPLIFICADO******************************************************************
+
+***********************************************FIN NUEVO CONTEO**************************************************************************
+
+
+
+
+
+
+
+
+      
+      END
