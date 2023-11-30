@@ -1,0 +1,43 @@
+
+INPUT: .doc file with all the tables
+This data is first processed with Matlab and tables written (likely) in .csv format
+
+All following steps are necessary to have a reliable read of the input data from word file:
+
+1. Copy manually one ROI data from .doc(x 9to .xls(x)
+IN MS-EXCEL (avoid free software in order not to have surprises!!!):
+2. Mark properly the sections and subsections: copy twice on the same row. 1st: erase all and set: Example 7.1 -> 7x10^4+1=70001	2nd: Original name with enumeration 3rd: Just the name
+3. Mark end of tables with EOT
+4. Mark end of document with EOF
+5. Erase empty rows
+6. Set empty references of related regions of level2 to [0]. The case recognizer looks for a char string there! (Do not use negative numbers becuase differences are used to split the references in a given ref-range!!! Or better use NULL?????????????). By now treated with [0] succesfully.
+
+Other measures found out during development:
+
+7. For (some) intrinsic tables (intraregional) the row with the names of the INPUT regions are actually 2 rows melted and matlab reads them as separated rows. ==> Turn it into SINGLE ROW.
+8. Separate all chemicals with separator ";". A few are separated by ",". This is found when running load1section.m for the 1st time on a given section.
+9. Correct any asymmetries on intrinsic tables. mor on this and 8. see WORK_PLAN.ods sheet "Issues_history"
+10. Make sure names od L2 regions in list of abbreviations at the beginning of the .docx. file coincide with the names of the same regions at the document section header. THis is not always the case, it has been observed indistinguished use of words "nucleus", "subnucleus" and "area" for the same thing.
+11. Abbreviations for regions and chemicals are read from the first table in each section rather than from lists for the whole document as before because many issues with different writing styles. 
+	a. Mark beginning of regions' abbs. with row 'Abbreviations regions'
+	b. Mark end with EOT
+	c. Mark beginning of chemicals' abbs. with row 'Abbreviations chemicals'
+	d. Mark end with EOT
+	not all sctions have included chems. abbs.
+	e. Add a row with the name of the main region (L1) and its abb. If not abb. known, use the name as abb.
+	f. modify the region names so that they are all in small case. The abbs remain as they are !!! 
+12. For intrinsec tables: Up to now only intrinsec references have been implemented: if table is empty, leave it empty so that values are read as NaN !!!  
+13. The regions abbreviations in intrinsic table and related-regions tables sometimes differ: to help on this and get consistency, in both cases the blank spaces are erased and parts catenated so that abbreviations for regions are always a single string. This was very helpful in section 7. 
+14. For regions with missing abbs. make the EXACT name of the region with no blanks with capitalsmarking wordbeginnings,  the abb. E.g.: PosteriorAgranalarInsularArea.  THis way such cases can be found easily and solved at a later stage.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ISSUES WITH LANGUAGE:
+
+IMPORTANCE OF ABBREVIATIONS: abbs. are used as main search parameter in database to avoid costly and complex full-text searches
+
+1. Indistinguished use of words: area, nucleus, subnucleus
+2. No abbreviations known for several regions
+3. Definite articles are sometimes used in name of a region and sometimes not (eg: ... of (the) stria terminalis)

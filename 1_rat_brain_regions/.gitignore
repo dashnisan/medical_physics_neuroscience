@@ -1,0 +1,4 @@
+web/www/
+web/DB/
+*.tar
+*.gz
